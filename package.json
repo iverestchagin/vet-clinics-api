@@ -1,0 +1,23 @@
+{
+  "name": "vet-clinics-api",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "eslint": "^4.10.0",
+    "express": "^4.16.2",
+    "morgan": "^1.9.0",
+    "mysql2": "^1.4.2",
+    "nconf": "^0.9.1",
+    "sequelize": "^4.22.5"
+  },
+  "devDependencies": {
+    "eslint-config-google": "^0.9.1"
+  }
+}
