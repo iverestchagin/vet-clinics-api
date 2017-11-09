@@ -39,7 +39,9 @@ app.use((err, req, res, next) => {
         output.description = err.type;
     } else if(!devenv) {
         output.error = 'Internal server error';
+        console.error(err);
     } else {
+        console.error(err);
         res.status(500);
         res.send(err);
         return;

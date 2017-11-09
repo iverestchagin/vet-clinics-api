@@ -12,5 +12,6 @@
   },
   "allowedIPs": [
     "127.0.0.1"
-  ]
+  ],
+  "onMergeWebhookURL": "http://localhost:3000/whtest"
 }

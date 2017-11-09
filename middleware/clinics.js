@@ -1,3 +1,6 @@
+const http = require('http');
+const URL = require('url');
+const config = require('../config');
 const ClinicsController = require('../controllers/clinics');
 
 function get(req, res, next) {
@@ -31,6 +34,41 @@ function post(req, res, next) {
                 mergeList = mergeList.split(',').map(e => parseInt(e)).filter(e => e > 0);
                 return ClinicsController.merge(clinic, mergeList);
             }
+        })
+        .then(([clinic, mergeList]) => {
+            let report = {
+                mergeList,
+                clinic: clinic.toJSON()
+            };
+
+            let webhook = config.get('onMergeWebhookURL');
+
+            if(webhook) {
+                let data = JSON.stringify(report);
+
+                let url = URL.parse(webhook);
+
+                let request = http.request({
+                    hostname: url.hostname,
+                    port: url.port,
+                    path: url.path,
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(data)
+                    }
+                });
+                
+                request.on('error', (err) => {
+                    console.error('Error calling webhook\n', err);
+                });
+            
+                request.write(data);
+                request.end();
+            }
+
+            report.date = new Date();
+            console.log('Clinics merged.\n', report);
         })
         .catch(err => {
             switch(err.name) {

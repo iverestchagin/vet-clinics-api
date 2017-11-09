@@ -94,8 +94,14 @@ async function merge(clinic, ids) {
                     },        
                     transaction
                 });
-            })
-    });
+            });
+    })
+        .then(() => {
+            return Promise.all([
+                get(clinic.id),
+                clinics.map(e => e.id)
+            ]);
+        });
 }
 
 async function get(id) {

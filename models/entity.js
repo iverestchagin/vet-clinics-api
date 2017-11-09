@@ -20,13 +20,6 @@ const Entity = db.define('entity', {
     }
 });
 
-/*
-Entity.hasMany(Clinic, {
-    foreignKey: 'legalId',
-    onDelete: 'CASCADE'
-});
-*/
-
 Clinic.belongsTo(Entity, {
     foreignKey: 'legalId'
 });
