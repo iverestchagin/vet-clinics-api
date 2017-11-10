@@ -30,45 +30,57 @@ function post(req, res, next) {
             res.send(clinic.dataValues);
 
             let mergeList = req.query.mergeList;
-            if(mergeList && mergeList.length) {
-                mergeList = mergeList.split(',').map(e => parseInt(e)).filter(e => e > 0);
-                return ClinicsController.merge(clinic, mergeList);
+            if(!mergeList || !mergeList.length) {
+                return;
             }
-        })
-        .then(([clinic, mergeList]) => {
-            let report = {
-                mergeList,
-                clinic: clinic.toJSON()
-            };
 
-            let webhook = config.get('onMergeWebhookURL');
+            mergeList = mergeList.split(',').map(e => parseInt(e)).filter(e => e > 0);
+            if(!mergeList.length) {
+                return;
+            }
 
-            if(webhook) {
-                let data = JSON.stringify(report);
+            ClinicsController.merge(clinic, mergeList)
+                .then(([clinic, mergeList]) => {
+                    let report = {
+                        mergeList,
+                        clinic: clinic.toJSON(),
+                        date: new Date()
+                    };
+        
+                    console.log('Clinics merged.\n', report);
 
-                let url = URL.parse(webhook);
-
-                let request = http.request({
-                    hostname: url.hostname,
-                    port: url.port,
-                    path: url.path,
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(data)
+                    let webhook = config.get('onMergeWebhookURL');
+        
+                    if(typeof webhook !== 'string') {
+                        return;
                     }
-                });
-                
-                request.on('error', (err) => {
-                    console.error('Error calling webhook\n', err);
-                });
-            
-                request.write(data);
-                request.end();
-            }
 
-            report.date = new Date();
-            console.log('Clinics merged.\n', report);
+                    delete report.date;
+                    let data = JSON.stringify(report);
+    
+                    let url = URL.parse(webhook);
+    
+                    let request = http.request({
+                        hostname: url.hostname,
+                        port: url.port,
+                        path: url.path,
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Content-Length': Buffer.byteLength(data)
+                        }
+                    });
+
+                    request.on('error', (err) => {
+                        console.error('Error calling webhook\n', err);                            
+                    });
+
+                    request.write(data);
+                    request.end();
+                })
+                .catch(err => {
+                    console.error('Error merging clinics\n', err);
+                });
         })
         .catch(err => {
             switch(err.name) {

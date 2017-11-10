@@ -1,4 +1,5 @@
 const Sequelize = require('sequelize');
+const Op = Sequelize.Op;
 const db = require('../db');
 const Entity = require('../models/entity');
 const Clinic = require('../models/clinic');
@@ -70,14 +71,14 @@ async function merge(clinic, ids) {
     let clinics = await Clinic.findAll({
         where: {
             id: {
-                [Sequelize.Op.in]: ids
+                [Op.in]: ids
             },
             deleted: false
         },
         include: [Entity]
     });
 
-    return db.transaction(transaction => {
+    await db.transaction(transaction => {
         let promises = clinics.map(e => e.entity.decrement({clinicsCount: 1}, {transaction})); // soso
 
         return Promise.all(promises)
@@ -88,20 +89,19 @@ async function merge(clinic, ids) {
                 }, {
                     where: {
                         id: {
-                            [Sequelize.Op.in]: ids
+                            [Op.in]: ids
                         },
                         deleted: false
                     },        
                     transaction
                 });
             });
-    })
-        .then(() => {
-            return Promise.all([
-                get(clinic.id),
-                clinics.map(e => e.id)
-            ]);
-        });
+    });
+
+    return Promise.all([
+        get(clinic.id),
+        clinics.map(e => e.id)
+    ]);
 }
 
 async function get(id) {
