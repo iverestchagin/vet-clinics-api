@@ -7,9 +7,6 @@ const Clinic = require('../models/clinic');
 async function list(offset, limit) {
     return Promise.all([
         Clinic.findAll({
-            where: {
-                deleted: false
-            },
             offset,
             limit,
             attributes: {
@@ -20,9 +17,6 @@ async function list(offset, limit) {
             },
             include: [{
                 model: Entity,
-                where: {
-                    deleted: false
-                },
                 attributes: {
                     exclude: [
                         'deleted',
@@ -31,32 +25,25 @@ async function list(offset, limit) {
                 }
             }]
         }),
-        Clinic.count({
-            where: {
-                deleted: false
-            },
-            include: [{
-                model: Entity,
-                where: {
-                    deleted: false
-                }
-            }]
-        })
+        Clinic.count()
     ]);
 }
 
-async function create(data) {
+async function create(data, entity) {
     delete data.deleted;
 
-    let entity = await Entity.findOne({
-        where: {
-            id: data.legalId,
-            deleted: false
-        }
-    });
-
     if(!entity) {
-        throw {name: 'SequelizeValidationError'};
+        entity = await Entity.findOne({
+            where: {
+                id: data.legalId,
+            }
+        });
+
+        if(!entity) {
+            throw {name: 'SequelizeValidationError'};
+        }
+    } else {
+        data.legalId = entity.id;
     }
 
     return db.transaction(transaction => {
@@ -72,10 +59,8 @@ async function merge(clinic, ids) {
         where: {
             id: {
                 [Op.in]: ids
-            },
-            deleted: false
-        },
-        include: [Entity]
+            }
+        }
     });
 
     await db.transaction(transaction => {
@@ -90,8 +75,7 @@ async function merge(clinic, ids) {
                     where: {
                         id: {
                             [Op.in]: ids
-                        },
-                        deleted: false
+                        }
                     },        
                     transaction
                 });
@@ -105,7 +89,7 @@ async function merge(clinic, ids) {
 }
 
 async function get(id) {
-    return Clinic.findOne({
+    return Clinic.unscoped().findOne({
         where: {id},
         attributes: {
             exclude: [
@@ -138,8 +122,7 @@ async function put(id, data) {
 
     let entity = await Entity.findOne({
         where: {
-            id: data.legalId,
-            deleted: false
+            id: data.legalId
         }
     });
 
@@ -148,7 +131,7 @@ async function put(id, data) {
     }
 
     await db.transaction(transaction => {
-        return Clinic.update(data, {where: {id, deleted: false}, transaction})
+        return Clinic.update(data, {where: {id}, transaction})
             .then(([affected]) => {
                 if(!affected) { // Still it is possible that linked entity is deleted 
                     throw {name: 'Clinic deleted while validating'};
@@ -165,9 +148,9 @@ async function put(id, data) {
 }
 
 async function markDeleted(id) {
-    let clinic = await Clinic.findOne({
+    let clinic = await Clinic.unscoped().findOne({
         where: {id},
-        include: [Entity]
+        include: [Entity.unscoped()]
     });
 
     if(!clinic) {
@@ -184,10 +167,7 @@ async function markDeleted(id) {
                 return Clinic.update({
                     deleted: true
                 }, {
-                    where: {
-                        id,
-                        deleted: false
-                    }
+                    where: {id}
                 });
             })
             .then(([affected]) => {
@@ -198,11 +178,18 @@ async function markDeleted(id) {
     });
 }
 
+async function findByCode(streetbeeCode) {
+    return Clinic.unscoped().findOne({
+        where: {streetbeeCode},
+    });
+}
+
 module.exports = {
     list,
     create,
     merge,
     get,
     put,
-    markDeleted
+    markDeleted,
+    findByCode
 };

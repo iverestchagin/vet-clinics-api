@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+
+const program = require('commander');
+const parse = require('csv-parse');
+
+const db = require('../db');
+
+const ImportController = require('../controllers/import');
+const EntitiesController = require('../controllers/entities');
+const ClinicsController = require('../controllers/clinics');
+
+program
+    .version('0.1.0')
+    .parse(process.argv);
+
+db.authenticate()
+    .then(() => {
+        return db.sync();
+    })
+    .then(() => {
+        return ImportController.findOneToProcess();
+    })
+    .then((item) => {
+        if(!item) {
+            process.exit(0);
+        }
+
+        if(require('is-running')(item.pid)) {
+            console.log('Import process is already running.');
+            process.exit(0);
+        }
+
+        item.status = 'STARTED';
+        item.startedAt = new Date;
+        item.pid = process.pid;
+
+        return ImportController.save(item);
+    })
+    .then((item) => {
+        return new Promise((resolve) => {
+            parse(item.rawData, {
+                columns: [
+                    'title',
+                    'entityTitle',
+                    'inn',
+                    'navCode',
+                    'crmCode',
+                    'apartment',
+                    'fias',
+                    'zipcode',
+                    'address',
+                    'category',
+                    'tradingChannel',
+                    'clientType',
+                    'signboard',
+                    'longitude',
+                    'latitude',
+                    'square',
+                    'referencePoint',
+                    'schedule',
+                    'url',
+                    'phone',
+                    'trustIndex',
+                    'streebeeUpdatedAt',
+                    'streetbeeCode',
+                    'isDuplicate',
+                    'refStreetbeeCode',
+                    'dealer',
+                    'shippedFrom',
+                    'wholesaler',
+                    'serviceTypeInFeedDept',
+                    'streetbeeVerificationStatus'
+                ],
+                from: 2,
+                relax: true
+            }, (err, res) => {
+                resolve([item, res, err]);
+            });
+        });
+    })
+    .then(async ([item, res, err]) => {
+        if(err) {
+            item.status = 'FAILED';
+            item.failReason = err.toString();
+            item.finishedAt = new Date();
+            return ImportController.save(item);
+        }
+        item.rowsCount = res.length;
+        item.legalEntitiesCount = 0;
+
+        let entities = { };
+        var entity, clinic;
+
+        for(var row of res) {
+            if(!! await ClinicsController.findByCode(row.streetbeeCode) || // and if clinic.deleted?
+                    row.tradingChannel != 'VET') {
+                continue;
+            }
+
+            entity = entities[row.entityTitle];
+
+            if(!entity) {
+                entity = await EntitiesController.findByTitle(row.entityTitle);
+
+                if(!entity) {
+                    entity = await EntitiesController.create({
+                        title: row.entityTitle,
+                        inn: row.inn
+                    });
+
+                    item.addEntity(entity); // newly created only?
+                }
+
+                entities[row.entityTitle] = entity;
+                item.legalEntitiesCount++;
+            }
+
+            /*
+            if(entity.deleted) {
+                ???
+            }
+            */
+
+            clinic = await ClinicsController.create(row, entity);
+            item.addClinic(clinic);
+        }
+
+        item.status = 'FINISHED';
+        item.finishedAt = new Date();
+
+        return ImportController.save(item);        
+    })
+    .then(() => {
+        process.exit(0);
+    })
+    .catch(err => {
+        console.error(err);
+        process.exit(1);
+    });

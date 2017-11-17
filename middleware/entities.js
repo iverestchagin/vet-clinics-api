@@ -26,23 +26,7 @@ function post(req, res, next) {
             res.status(201);
             res.send(dataValues);
         })
-        .catch(err => {
-            switch(err.name) {
-            case 'SequelizeUniqueConstraintError':
-                res.status(409);
-                break;
-    
-            case 'SequelizeValidationError':
-                res.status(422);
-                break;
-
-            default:
-                next(err);
-                return;
-            }
-
-            res.end();
-        });
+        .catch(next);
 }
 
 function getById(req, res, next) {
@@ -79,23 +63,7 @@ function put(req, res, next) {
 
             res.end();
         })
-        .catch(err => {
-            switch(err.name) {
-            case 'SequelizeUniqueConstraintError':
-                res.status(409);
-                break;
-    
-            case 'SequelizeValidationError':
-                res.status(422);
-                break;
-
-            default:
-                next(err);
-                return;
-            }
-
-            res.end();
-        });
+        .catch(next);
 }
 
 function markDeleted(req, res, next) {

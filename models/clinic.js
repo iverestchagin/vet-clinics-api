@@ -1,4 +1,5 @@
 const Sequelize = require('sequelize');
+const Entity = require('./entity');
 const db = require('../db');
 
 const Clinic = db.define('clinic', {
@@ -41,6 +42,17 @@ const Clinic = db.define('clinic', {
         type: Sequelize.BOOLEAN,
         defaultValue: false
     }
+}, {
+    defaultScope: {
+        where: {
+            deleted: false
+        },
+        include: [Entity]
+    }
+});
+
+Clinic.belongsTo(Entity, {
+    foreignKey: 'legalId'
 });
 
 Clinic.belongsTo(Clinic, {

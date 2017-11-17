@@ -1,7 +1,5 @@
-const http = require('http');
-const URL = require('url');
-const config = require('../config');
 const ClinicsController = require('../controllers/clinics');
+const webHooks = require('../webhooks');
 
 function get(req, res, next) {
     let perPage = Math.max(1, Math.min(500, parseInt(req.query['per-page']) || 50));
@@ -41,64 +39,13 @@ function post(req, res, next) {
 
             ClinicsController.merge(clinic, mergeList)
                 .then(([clinic, mergeList]) => {
-                    let report = {
-                        mergeList,
-                        clinic: clinic.toJSON(),
-                        date: new Date()
-                    };
-        
-                    console.log('Clinics merged.\n', report);
-
-                    let webhook = config.get('onMergeWebhookURL');
-        
-                    if(typeof webhook !== 'string') {
-                        return;
-                    }
-
-                    delete report.date;
-                    let data = JSON.stringify(report);
-    
-                    let url = URL.parse(webhook);
-    
-                    let request = http.request({
-                        hostname: url.hostname,
-                        port: url.port,
-                        path: url.path,
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Content-Length': Buffer.byteLength(data)
-                        }
-                    });
-
-                    request.on('error', (err) => {
-                        console.error('Error calling webhook\n', err);                            
-                    });
-
-                    request.write(data);
-                    request.end();
+                    webHooks.emit('merge', clinic, mergeList);
                 })
                 .catch(err => {
                     console.error('Error merging clinics\n', err);
                 });
         })
-        .catch(err => {
-            switch(err.name) {
-            case 'SequelizeUniqueConstraintError':
-                res.status(409);
-                break;
-
-            case 'SequelizeValidationError':
-                res.status(422);
-                break;
-
-            default:
-                next(err);
-                return;
-            }
-
-            res.end();
-        });
+        .catch(next);
 }
 
 function getById(req, res, next) {
@@ -139,24 +86,15 @@ function put(req, res, next) {
         })
         .catch(err => {
             switch(err.name) {
-            case 'SequelizeUniqueConstraintError':
-                res.status(409);
-                break;
-    
-            case 'SequelizeValidationError':
-                res.status(422);
-                break;
-
             case 'Clinic deleted while validating':
                 res.status(410);
+                res.end();
                 break;
 
             default:
                 next(err);
                 return;
             }
-
-            res.end();
         });
 }
 

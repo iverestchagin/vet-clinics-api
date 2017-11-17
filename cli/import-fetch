@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+
+const program = require('commander');
+const http = require('http');
+const URL = require('url');
+
+const db = require('../db');
+
+const ImportController = require('../controllers/import');
+
+program
+    .version('0.1.0')
+    .parse(process.argv);
+
+db.authenticate()
+    .then(() => {
+        return db.sync();
+    })
+    .then(() => {
+        return ImportController.findOneToFetch();
+    })
+    .then((item) => {
+        if(!item) {
+            process.exit(0);
+        }
+
+        if(item.status == 'FETCHING' && require('is-running')(item.pid)) {
+            console.log('Import file is already being fetched by another process.');
+            process.exit(0);
+        }
+
+        item.status = 'FETCHING';
+        item.pid = process.pid;
+
+        return ImportController.save(item);
+    })
+    .then((item) => {
+        let url = URL.parse(item.source_url);
+        
+        return new Promise((resolve) => {
+            let request = http.request({
+                hostname: url.hostname,
+                port: url.port,
+                path: url.path,
+                method: 'GET',
+            }, (res) => {
+                if(res.statusCode != 200) {
+                    resolve([item, 'Server at ' + url.hostname + ' returned ' + res.statusCode + ' status.']);
+                }
+
+                let data = [];
+
+                res.on('data', (chunk) => {
+                    data.push(chunk);
+                });
+
+                res.on('end', () => {
+                    item.rawData = Buffer.concat(data).toString();
+                    resolve([item]);
+                });
+            });
+
+            request.on('error', (err) => {
+                resolve([item, 'Error: ' + err]);
+            });
+
+            request.end();
+        });
+    })
+    .then(([item, err]) => {
+        if(err) {
+            item.status = 'FAILED';
+            item.failReason = err.toString();
+            item.finishedAt = new Date();
+        } else {
+            item.status = 'FETCHED';
+            item.fetchedAt = new Date();
+        }
+        return ImportController.save(item);
+    })
+    .then(() => {
+        process.exit(0);
+    })
+    .catch(err => {
+        console.error(err);
+        process.exit(1);
+    });

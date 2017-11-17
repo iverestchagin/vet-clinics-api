@@ -3,9 +3,6 @@ const Entity = require('../models/entity');
 async function list(offset, limit) {
     return Promise.all([
         Entity.findAll({
-            where: {
-                deleted: false
-            },
             offset,
             limit,
             attributes: {
@@ -14,11 +11,7 @@ async function list(offset, limit) {
                 ]
             }
         }),
-        Entity.count({
-            where: {
-                deleted: false
-            }
-        })
+        Entity.count()
     ]);
 }
 
@@ -31,7 +24,7 @@ async function create(data) {
 }
 
 async function get(id) {
-    return Entity.findById(id);
+    return Entity.unscoped().findById(id);
 }
 
 async function put(id, data) {
@@ -42,12 +35,7 @@ async function put(id, data) {
     let entity = Entity.build(data);
     await entity.validate();
 
-    await Entity.update(data, {
-        where: {
-            id,
-            deleted: false
-        }
-    });
+    await Entity.update(data, {where: {id}});
 
     return get(id);
 }
@@ -61,10 +49,13 @@ async function markDeleted(id) {
 
     return Entity.update({
         deleted: true
-    }, {
+    }, {where: {id}});
+}
+
+async function findByTitle(title) {
+    return Entity.unscoped().findOne({
         where: {
-            id,
-            deleted: false
+            title
         }
     });
 }
@@ -74,5 +65,6 @@ module.exports = {
     create,
     get,
     put,
-    markDeleted
+    markDeleted,
+    findByTitle
 };

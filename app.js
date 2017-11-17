@@ -30,25 +30,26 @@ app.use((err, req, res, next) => {
         return next(err);
     }
 
-    let output = {};
-    let status = 500;
-
     if(err.status && err.expose) {
-        status = err.status;
-        output.error = 'Error parsing request body';
-        output.description = err.type;
+        res.status(err.status);
+        res.send({
+            error: 'Error parsing request body',
+            description: err.type    
+        });
+    } else if(err.name == 'SequelizeUniqueConstraintError') {
+        res.status(409);
+    } else if(err.name == 'SequelizeValidationError') {
+        res.status(422);
     } else if(!devenv) {
-        output.error = 'Internal server error';
         console.error(err);
+        res.status(500);
     } else {
         console.error(err);
         res.status(500);
         res.send(err);
-        return;
     }
 
-    res.status(status);
-    res.send(output);
+    res.end();
 });
 
 module.exports = app;

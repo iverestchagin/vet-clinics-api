@@ -1,8 +1,6 @@
 const Sequelize = require('sequelize');
 const db = require('../db');
 
-const Clinic = require('./clinic');
-
 const Entity = db.define('entity', {
     title: {
         type: Sequelize.STRING,
@@ -18,10 +16,19 @@ const Entity = db.define('entity', {
         type: Sequelize.BOOLEAN,
         defaultValue: false
     }
-});
-
-Clinic.belongsTo(Entity, {
-    foreignKey: 'legalId'
+}, {
+    defaultScope: {
+        where: {
+            deleted: false
+        }
+    },
+    scopes: {
+        test: {
+            where: {
+                deleted: true
+            }
+        }
+    }
 });
 
 module.exports = Entity;
