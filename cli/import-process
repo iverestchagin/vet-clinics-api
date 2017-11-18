@@ -92,7 +92,7 @@ db.authenticate()
         var entity, clinic;
 
         for(var row of res) {
-            if(!! await ClinicsController.findByCode(row.streetbeeCode) || // and if clinic.deleted?
+            if(!! await ClinicsController.findByCode(row.streetbeeCode) ||
                     row.tradingChannel != 'VET') {
                 continue;
             }
@@ -109,17 +109,13 @@ db.authenticate()
                     });
 
                     item.addEntity(entity); // newly created only?
+                } else if(entity.deleted) {
+                    continue;
                 }
 
                 entities[row.entityTitle] = entity;
                 item.legalEntitiesCount++;
             }
-
-            /*
-            if(entity.deleted) {
-                ???
-            }
-            */
 
             clinic = await ClinicsController.create(row, entity);
             item.addClinic(clinic);
